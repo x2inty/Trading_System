@@ -1,0 +1,278 @@
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+import json
+
+class DeribitOptionsAnalyzer:
+    def __init__(self):
+        self.base_url = "https://deribit.com/api/v2/public"
+        self.btc_price = None
+        
+    def get_btc_price(self):
+        """Fetches current BTC price"""
+        try:
+            url = f"{self.base_url}/get_index_price?index_name=btc_usd"
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            self.btc_price = data['result']['index_price']
+            return self.btc_price
+        except Exception as e:
+            print(f"BTC price error: {e}")
+            return None
+    
+    def get_options_by_expiry(self, expiry_date):
+        """Fetches all options for expiration date"""
+        try:
+            url = f"{self.base_url}/get_instruments?currency=BTC&kind=option&expired=false"
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            
+            options = []
+            for instrument in data['result']:
+                if expiry_date in instrument['instrument_name']:
+                    options.append(instrument)
+            return options
+        except Exception as e:
+            print(f"Options retrieval error: {e}")
+            return []
+    
+    def get_option_stats(self, instrument_name):
+        """Fetches option stats (volume, open interest)"""
+        try:
+            url = f"{self.base_url}/get_book_summary_by_instrument?instrument_name={instrument_name}"
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            
+            result = data['result'][0]
+            return {
+                'open_interest': result.get('open_interest', 0),
+                'volume_24h': result.get('volume', 0),
+                'bid_price': result.get('bid_price', 0),
+                'ask_price': result.get('ask_price', 0)
+            }
+        except Exception as e:
+            print(f"Stats error {instrument_name}: {e}")
+            return None
+    
+    def parse_option_name(self, instrument_name):
+        """Parses option name to extract strike, type, date"""
+        # Format: BTC-27JUN25-100000-C
+        parts = instrument_name.split('-')
+        if len(parts) == 4:
+            currency = parts[0]
+            expiry = parts[1]
+            strike = int(parts[2])
+            option_type = 'CALL' if parts[3] == 'C' else 'PUT'
+            return {
+                'currency': currency,
+                'expiry': expiry,
+                'strike': strike,
+                'type': option_type
+            }
+        return None
+    
+    def calculate_gamma_impact(self, strike, open_interest, option_type, current_price):
+        """Calculates option's gamma impact"""
+        if current_price is None:
+            return 0
+            
+        # Strike distance from current price
+        distance = abs(strike - current_price) / current_price
+        
+        # Max gamma impact for ATM options, decreases with distance
+        gamma_factor = max(0, 1 - distance * 2)  # 0 if distance > 50%
+        
+        # Directional impact
+        if option_type == 'CALL':
+            # Calls create resistance above price
+            impact = open_interest * gamma_factor if strike > current_price else 0
+        else:  # PUT
+            # Puts create support below price  
+            impact = open_interest * gamma_factor if strike < current_price else 0
+            
+        return impact
+    
+    def calculate_gamma_wall(self, options_data, current_price):
+        """Calculates Gamma Wall (equilibrium point)"""
+        if not options_data or current_price is None:
+            return None
+            
+        total_weighted_pressure = 0
+        total_weight = 0
+        
+        for option in options_data:
+            if option['open_interest'] > 100:  # Minimum threshold
+                weight = option['open_interest'] * option['gamma_factor']
+                total_weighted_pressure += option['strike'] * weight
+                total_weight += weight
+        
+        if total_weight > 0:
+            return total_weighted_pressure / total_weight
+        return current_price
+    
+    def predict_direction(self, current_price, gamma_wall, options_data):
+        """Predicts post-expiration direction"""
+        if current_price is None or gamma_wall is None:
+            return "INSUFFICIENT DATA"
+            
+        price_vs_wall = (current_price - gamma_wall) / gamma_wall * 100
+        
+        # Confidence based on total volume
+        total_volume = sum(opt['open_interest'] for opt in options_data)
+        confidence = min(95, 50 + total_volume / 1000)  # Max 95%
+        
+        if price_vs_wall < -2:  # Price 2%+ below gamma wall
+            return f"RISE toward {gamma_wall:.0f}$ (Confidence: {confidence:.0f}%)"
+        elif price_vs_wall > 2:  # Price 2%+ above gamma wall
+            return f"DROP toward {gamma_wall:.0f}$ (Confidence: {confidence:.0f}%)"
+        else:
+            return f"RANGE around {gamma_wall:.0f}$ (Confidence: {confidence:.0f}%)"
+    
+    def analyze_expiry(self, expiry_date):
+        """Full expiration analysis"""
+        print(f"\n{'='*50}")
+        print(f"BTC OPTION EXPIRATION ANALYSIS {expiry_date}")
+        print(f"{'='*50}")
+        
+        # Current BTC price
+        current_price = self.get_btc_price()
+        if current_price:
+            print(f"Current BTC price: ${current_price:,.0f}")
+        else:
+            print("ERROR: Failed to get BTC price")
+            return
+        
+        # Retrieve options
+        options = self.get_options_by_expiry(expiry_date)
+        if not options:
+            print("ERROR: No options found for this date")
+            return
+            
+        print(f"Options found: {len(options)}")
+        
+        # Analyze each option
+        options_data = []
+        print(f"\n{'Strike':<10} {'Type':<6} {'Open Interest':<15} {'Gamma Impact':<12} {'Status'}")
+        print(f"{'-'*70}")
+        
+        for option in options:
+            parsed = self.parse_option_name(option['instrument_name'])
+            if not parsed:
+                continue
+                
+            stats = self.get_option_stats(option['instrument_name'])
+            if not stats:
+                continue
+                
+            gamma_impact = self.calculate_gamma_impact(
+                parsed['strike'], 
+                stats['open_interest'], 
+                parsed['type'],
+                current_price
+            )
+            
+            # Determine status
+            distance = abs(parsed['strike'] - current_price) / current_price * 100
+            if distance < 5:
+                status = "CRITICAL"
+            elif distance < 15:
+                status = "IMPORTANT"
+            else:
+                status = "DISTANT"
+            
+            gamma_factor = max(0, 1 - distance/100 * 2)
+            
+            option_data = {
+                'strike': parsed['strike'],
+                'type': parsed['type'], 
+                'open_interest': stats['open_interest'],
+                'gamma_impact': gamma_impact,
+                'gamma_factor': gamma_factor,
+                'status': status
+            }
+            options_data.append(option_data)
+            
+            print(f"{parsed['strike']:<10} {parsed['type']:<6} {stats['open_interest']:<15.1f} "
+                  f"{gamma_impact:<12.0f} {status}")
+        
+        # Sort by open interest
+        options_data.sort(key=lambda x: x['open_interest'], reverse=True)
+        
+        # Calculate Gamma Wall
+        gamma_wall = self.calculate_gamma_wall(options_data, current_price)
+        
+        print(f"\n{'='*50}")
+        print("GAMMA EXPOSURE ANALYSIS")
+        print(f"{'='*50}")
+        print(f"Calculated Gamma Wall: ${gamma_wall:.0f}")
+        
+        # Identify critical zones
+        puts_important = [opt for opt in options_data if opt['type'] == 'PUT' and opt['open_interest'] > 1000]
+        calls_important = [opt for opt in options_data if opt['type'] == 'CALL' and opt['open_interest'] > 1000]
+        
+        if puts_important:
+            print(f"\nImportant PUTS (support):")
+            for put in puts_important[:3]:
+                print(f"  ${put['strike']:,} - {put['open_interest']:.0f} BTC")
+        
+        if calls_important:
+            print(f"\nImportant CALLS (resistance):")
+            for call in calls_important[:3]:
+                print(f"  ${call['strike']:,} - {call['open_interest']:.0f} BTC")
+        
+        # Prediction
+        prediction = self.predict_direction(current_price, gamma_wall, options_data)
+        
+        print(f"\n{'='*50}")
+        print("POST-EXPIRATION PREDICTION")
+        print(f"{'='*50}")
+        print(f"Predicted direction: {prediction}")
+        
+        # Detailed scenarios
+        print(f"\nScenarios based on expiry day price:")
+        print(f"If BTC < ${gamma_wall*0.98:.0f}: Likely RISE to ${gamma_wall:.0f}")
+        print(f"If BTC ${gamma_wall*0.98:.0f}-${gamma_wall*1.02:.0f}: RANGE/VOLATILITY")
+        print(f"If BTC > ${gamma_wall*1.02:.0f}: Likely DROP to ${gamma_wall:.0f}")
+        
+        # Statistics
+        total_oi = sum(opt['open_interest'] for opt in options_data)
+        total_puts = sum(opt['open_interest'] for opt in options_data if opt['type'] == 'PUT')
+        total_calls = sum(opt['open_interest'] for opt in options_data if opt['type'] == 'CALL')
+        
+        print(f"\n{'='*50}")
+        print("STATISTICS")
+        print(f"{'='*50}")
+        print(f"Total Open Interest: {total_oi:.0f} BTC")
+        print(f"Total Puts: {total_puts:.0f} BTC ({total_puts/total_oi*100:.1f}%)")
+        print(f"Total Calls: {total_calls:.0f} BTC ({total_calls/total_oi*100:.1f}%)")
+        print(f"Put/Call ratio: {total_puts/total_calls:.2f}")
+        
+        return {
+            'current_price': current_price,
+            'gamma_wall': gamma_wall,
+            'prediction': prediction,
+            'total_oi': total_oi,
+            'put_call_ratio': total_puts/total_calls
+        }
+
+def main():
+    """Main function"""
+    analyzer = DeribitOptionsAnalyzer()
+    
+    print("DERIBIT BTC OPTION EXPIRATION ANALYZER")
+    print("Analysis based on Gamma Exposure and Max Pain")
+    
+    # Example with June 27, 2025 expiration
+    result = analyzer.analyze_expiry("27JUN25")
+    
+    # Option to analyze other dates
+    while True:
+        print(f"\n{'-'*50}")
+        other_date = input("Analyze another expiration date? (ex: 26SEP25, or 'q' to quit): ")
+        if other_date.lower() == 'q':
+            break
+        if other_date:
+            analyzer.analyze_expiry(other_date.upper())
+
+if __name__ == "__main__":
+    main()
