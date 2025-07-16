@@ -17,8 +17,8 @@ Stress Factor (0.99):
 T (Staking Token):
 
 Code for T with dynamic resistance
-floating_supply = circulating_supply - bonded_tokens
-resistance_factor = get_resistance_factor(staking_rate)  # 2% to 15%
-stakeable_vendable = bonded_tokens * (1 - resistance_factor)
-total_sellable = floating_supply + stakeable_sellable
+_ floating_supply = circulating_supply - bonded_tokens
+_ resistance_factor = get_resistance_factor(staking_rate)  # 2% to 15%
+_ stakeable_vendable = bonded_tokens * (1 - resistance_factor)
+_ total_sellable = floating_supply + stakeable_sellable
 
