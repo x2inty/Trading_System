@@ -128,4 +128,21 @@ STOP_LOSS_BUFFER = 0.95            # Stop-loss at floor × 0.95
 BEAR_PERCENTAGES = [10, 20, 30, 40]  # -10% to -40%
 BULL_PERCENTAGES = [10, 20, 30, 40]  # +10% to +40%
 
+TRIPLE BASELINE FORMULAS
+
+def calculate_triple_baseline(market_cap, current_supply):
+    """Triple baseline: current / post-unlock / annual"""
+    
+    # 1. Current Baseline
+    current_floor = market_cap / (current_supply * 0.99)
+    
+    # 2. Post-Unlock Baseline (+10M T)
+    post_unlock_supply = current_supply + 10_000_000
+    post_unlock_floor = market_cap / (post_unlock_supply * 0.99)
+    
+    # 3. Annual Baseline (~12 unlocks)
+    annual_supply = current_supply + (10_000_000 * 12)
+    annual_floor = market_cap / (annual_supply * 0.99)
+    
+    return {current_floor, post_unlock_floor, annual_floor}
 
