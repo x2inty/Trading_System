@@ -1,5 +1,5 @@
-Y = your_Token
-MAIN FORMULA – Y Floor Price
+T = your_Token
+MAIN FORMULA – T Floor Price
 
 def calculate_T_floor_price(market_cap, circulating_supply):
     """Main formula for T floor price"""
