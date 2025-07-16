@@ -1,6 +1,7 @@
 T (Liquid Token):
 
 Current code in ....py
+
 stress_factor = 0.99  # 99% sellable
 sellable_supply = circulating_supply * 0.99  # 1% fixed resistance
 floor_price = market_cap / sellable_supply
