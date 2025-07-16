@@ -1,7 +1,7 @@
 Y = your_Token
 MAIN FORMULA – Y Floor Price
 
-def calculate_zro_floor_price(market_cap, circulating_supply):
+def calculate_T_floor_price(market_cap, circulating_supply):
     """Main formula for T floor price"""
 
     # 1 Stress Factor T (liquid tokens)
