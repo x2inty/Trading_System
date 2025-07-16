@@ -2,15 +2,15 @@ T (Liquid Token):
 
 Current code in ....py
 
-stress_factor = 0.99  # 99% sellable
-sellable_supply = circulating_supply * 0.99  # 1% fixed resistance
-floor_price = market_cap / sellable_supply
+1. stress_factor = 0.99  # 99% sellable
+2. sellable_supply = circulating_supply * 0.99  # 1% fixed resistance
+3. floor_price = market_cap / sellable_supply
 
 Stress Factor (0.99):
 
-Function: Intrinsic resistance (holder conviction)
-Constant: 1% of tokens are never sold, even under extreme stress
-Applied to: All calculations (Bear, Bull, baseline)
+1. Function: Intrinsic resistance (holder conviction)
+2. Constant: 1% of tokens are never sold, even under extreme stress
+3. Applied to: All calculations (Bear, Bull, baseline)
 
 ----------------------------------------------
 
