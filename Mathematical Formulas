@@ -146,3 +146,8 @@ def calculate_triple_baseline(market_cap, current_supply):
     
     return {current_floor, post_unlock_floor, annual_floor}
 
+Mathematical Formulas:
+
+Current_Floor = MC ÷ (Current_Supply × 0.99)
+Post_Unlock_Floor = MC ÷ ((Current_Supply + 10M) × 0.99)
+Annual_Floor = MC ÷ ((Current_Supply + ...M) × 0.99)
