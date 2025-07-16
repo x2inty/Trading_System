@@ -1,0 +1,131 @@
+Y = your_Token
+MAIN FORMULA – Y Floor Price
+
+def calculate_zro_floor_price(market_cap, circulating_supply):
+    """Main formula for T floor price"""
+
+    # 1 Stress Factor T (liquid tokens)
+    stress_factor = 0.99  # 99% sellable under extreme stress
+
+    # 2. Effective sellable supply
+    sellable_supply = circulating_supply * stress_factor
+
+    # 3. Final floor price
+    floor_price = market_cap / sellable_supply
+
+    return floor_price
+
+Mathematical Formula:
+T_Floor_Price = Market_Cap ÷ (Circulating_Supply × 0.99)
+Where:
+
+Market_Cap_API = Real-time data from CoinRanking
+
+Circulating_Supply_API = Real-time data from CoinRanking
+
+0.99 = Stress Factor T (99% sellable supply)
+
+BEAR SCENARIO FORMULAS
+def calculate_bear_scenarios(market_cap, supply):
+    """Bear scenarios from -10% to -40%"""
+
+    bear_scenarios = {}
+
+    for pct in [10, 20, 30, 40]:
+        # Stressed Market Cap
+        stressed_mc = market_cap * (1 - pct/100)
+
+        # Resulting floor price
+        bear_floor = stressed_mc / (supply * 0.99)
+
+        bear_scenarios[f'-{pct}%'] = bear_floor
+
+    return bear_scenarios
+
+Mathematical Formulas:
+
+Bear_-10% = (MC × 0.90) ÷ (Supply × 0.99)
+Bear_-20% = (MC × 0.80) ÷ (Supply × 0.99)
+Bear_-30% = (MC × 0.70) ÷ (Supply × 0.99)
+Bear_-40% = (MC × 0.60) ÷ (Supply × 0.99)
+
+BULL SCENARIO FORMULAS
+def calculate_bull_scenarios(market_cap, supply):
+    """Bull Scenarios +10% to +40%"""
+    
+    bull_scenarios = {}
+    
+    for pct in [10, 20, 30, 40]:
+        # Bullish Market Cap
+        bull_mc = market_cap * (1 + pct / 100)
+        
+        # Resulting target price
+        bull_target = bull_mc / (supply * 0.99)
+        
+        bull_scenarios[f'+{pct}%'] = bull_target
+    
+    return bull_scenarios
+
+Mathematical Formulas:
+
+Bull_+10% = (MC × 1.10) ÷ (Supply × 0.99)
+Bull_+20% = (MC × 1.20) ÷ (Supply × 0.99)
+Bull_+30% = (MC × 1.30) ÷ (Supply × 0.99)
+Bull_+40% = (MC × 1.40) ÷ (Supply × 0.99)
+
+DERIVED METRIC FORMULAS
+1. Distance from Floor Price
+distance_from_floor = ((current_price - floor_price) / floor_price) * 100
+
+2. Safety Margin
+safety_margin = ((floor_price - current_price) / current_price) * 100
+
+3. Trading Signal
+signal = "BUY" if current_price < (floor_price * 1.15) else "HOLD"
+
+4. Scenario vs. Current Price
+vs_current = ((scenario_price - current_price) / current_price) * 100
+
+TIME EVOLUTION FORMULAS
+def calculate_evolution_data(current_data, previous_snapshot):
+    """Calculate changes since the last snapshot"""
+    
+    # Price Change
+    price_change = ((curr_price - prev_price) / prev_price) * 100
+    
+    # Market Cap Change
+    mc_change = ((curr_mc - prev_mc) / prev_mc) * 100
+    
+    # Floor Price Change
+    floor_change = ((curr_floor - prev_floor) / prev_floor) * 100
+    
+    return {price_change, mc_change, floor_change}
+
+VALIDATION FORMULAS
+1. Market Cap Consistency Check
+expected_mc = usd_price * circulating_supply
+mc_difference = abs(expected_mc - market_cap_api) / market_cap_api * 100
+
+2. Model vs. Empirical Validation
+empirical_floor = 1.70  # Empirical floor for T
+model_difference = abs(floor_calculated - empirical_floor) / empirical_floor * 100
+
+3. Supply Consistency
+circulation_ratio = circulating_supply / total_supply * 100
+
+USED CONSTANTS
+# T Constants
+STRESS_FACTOR_T = 0.99             # 99% sellable under stress
+EMPIRICAL_FLOOR = 1.70             # Validated empirical floor
+UNLOCK_AMOUNT = 10_000_000         # 10M T per unlock
+TOTAL_SUPPLY = 1_000_000_000       # 1B T total supply
+
+# Signal Thresholds
+BUY_THRESHOLD = 1.15               # Buy if price < floor × 1.15
+STOP_LOSS_BUFFER = 0.95            # Stop-loss at floor × 0.95
+
+# Stress Scenarios
+BEAR_PERCENTAGES = [10, 20, 30, 40]  # -10% to -40%
+BULL_PERCENTAGES = [10, 20, 30, 40]  # +10% to +40%
+
+
