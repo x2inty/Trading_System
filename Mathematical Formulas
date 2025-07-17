@@ -1,0 +1,38 @@
+def calculate_T_floor_price(market_cap, circulating_supply, bonded_tokens, staking_rate):
+    # 1. Floating supply
+    floating_supply = circulating_supply - bonded_tokens
+
+    # 2. Resistance based on staking
+    resistance_factor = get_resistance_factor(staking_rate)
+
+    # 3. Sellable staked tokens
+    stakeable_sellable = bonded_tokens * (1 - resistance_factor)
+
+    # 4. Total sellable supply
+    total_sellable_supply = floating_supply + stakeable_sellable
+
+    # 5. Floor price
+    floor_price = market_cap / total_sellable_supply
+
+    return {
+        'floor_price': floor_price,
+        'floating_supply': floating_supply,
+        'stakeable_sellable': stakeable_sellable,
+        'total_sellable_supply': total_sellable_supply,
+        'resistance_factor': resistance_factor,
+        'staking_rate': staking_rate
+    }
+
+# Resistance Factor (Thresholds)
+resistance_thresholds = {
+    95: 0.15,  # 15% resist if staking >95%
+    90: 0.10,  # 10% resist if staking between 90–95%
+    85: 0.05,  # 5% resist if staking between 85–90%
+    0:  0.02   # 2% resist if staking <85%
+}
+
+def get_resistance_factor(staking_rate):
+    for threshold in sorted(resistance_thresholds.keys(), reverse=True):
+        if staking_rate >= threshold:
+            return resistance_thresholds[threshold]
+    return resistance_thresholds[0]
