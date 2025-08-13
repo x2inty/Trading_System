@@ -10,7 +10,7 @@ EXACT_PATTERNS
 
 average
 
-temporal_zone(?)
+temporal_zone (Not enough data)
 
 fusion_timeline_crash_rally
 
